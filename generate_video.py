@@ -28,49 +28,53 @@ Limit to 10 to 12 scenes. Do NOT wrap it in markdown block (like ```json), just 
 # FIXED: removed stray markdown-link brackets [ ]( ) that were wrapped around the URL,
 # and swapped gemini-1.5-flash (fully shut down, returns 404) for gemini-3.8-flash (current)
 url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=" + api_key
-payload = {"contents": [{"parts": [{"text": ai_prompt}]}]}
+payload = {
+    "contents": [{"parts": [{"text": ai_prompt}]}],
+    # FIXED: forces Gemini to return syntactically valid JSON only, instead of
+    # just hoping the prompt instructions are followed. This is what was causing
+    # the "Unterminated string" parsing error (an unescaped character in the raw text reply).
+    "generationConfig": {"responseMimeType": "application/json"}
+}
 
-# Retry loop: handles Gemini returning 503 "high demand" / rate-limit errors,
-# which are temporary and just need a short wait + another try.
-data = None
+# Retry loop: handles Gemini returning 503 "high demand" errors AND retries if the
+# JSON it sent back fails to parse, instead of crashing the whole run on either.
+scenes = None
 max_retries = 5
 wait_seconds = 20
 
 for attempt in range(1, max_retries + 1):
+    data = None
     try:
         response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=60)
         data = response.json()
     except Exception as e:
         print(f"⚠️ Request failed (attempt {attempt}/{max_retries}):", e)
-        data = None
 
     if data and "candidates" in data:
-        break  # success
+        try:
+            json_text = data['candidates'][0]['content']['parts'][0]['text'].strip()
+            if json_text.startswith("```json"):
+                json_text = json_text[7:-3].strip()
+            elif json_text.startswith("```"):
+                json_text = json_text[3:-3].strip()
+            scenes = json.loads(json_text)
+            print("✅ Gemini generated", len(scenes), "scenes successfully!")
+            break  # success
+        except Exception as e:
+            print(f"⚠️ Parsing failed (attempt {attempt}/{max_retries}):", e)
+    else:
+        print(f"⚠️ API error (attempt {attempt}/{max_retries}):", data)
 
-    status = ""
-    if data and isinstance(data.get("error"), dict):
-        status = data["error"].get("status", "")
-
-    if attempt < max_retries and (data is None or status in ("UNAVAILABLE", "RESOURCE_EXHAUSTED", "INTERNAL")):
-        print(f"⏳ Gemini busy (attempt {attempt}/{max_retries}). Waiting {wait_seconds}s and retrying...")
+    if attempt < max_retries:
+        print(f"⏳ Retrying in {wait_seconds}s...")
         time.sleep(wait_seconds)
         wait_seconds = min(wait_seconds * 2, 120)
     else:
-        print("❌ API Error:", data)
+        print("❌ Gemini failed after all retries.")
         exit(1)
 
-try:
-    json_text = data['candidates'][0]['content']['parts'][0]['text'].strip()
-
-    if json_text.startswith("```json"):
-        json_text = json_text[7:-3].strip()
-    elif json_text.startswith("```"):
-        json_text = json_text[3:-3].strip()
-
-    scenes = json.loads(json_text)
-    print("✅ Gemini generated", len(scenes), "scenes successfully!")
-except Exception as e:
-    print("❌ Parsing Failed:", e)
+if not scenes:
+    print("❌ No scenes generated.")
     exit(1)
 
 clip_files = []
