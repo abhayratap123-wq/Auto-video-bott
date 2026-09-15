@@ -2,66 +2,25 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>AI Real Video Studio</title>
+    <title>AI USA Video Studio</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { background: #0f0f0f; color: white; font-family: Arial; margin: 0; padding: 20px; text-align: center; }
-        .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #222; border-radius: 10px; margin-bottom: 20px; }
-        .btn { background: #4285f4; color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 8px; cursor: pointer; font-weight: bold; text-decoration: none; }
-        .grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
-        .vid-card { background: #1a1a1a; padding: 15px; border-radius: 12px; width: 320px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        video { width: 100%; border-radius: 8px; background: black; }
-        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 100; align-items: center; justify-content: center; }
-        .modal-box { background: linear-gradient(135deg, #1d0033, #001a33); width: 90%; max-width: 400px; padding: 30px; border-radius: 20px; text-align: center; }
-        input[type="text"], input[type="password"] { width: 90%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: none; font-size: 16px; }
-        #loading-screen { display: none; }
-        .spinner { width: 60px; height: 60px; border: 6px solid #444; border-top: 6px solid #4285f4; border-radius: 50%; animation: spin 1s linear infinite; margin: 20px auto; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        body { background: #0a0a0a; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; text-align: center; }
+        h1 { color: #00e676; margin-bottom: 5px; }
+        p { color: #aaa; margin-bottom: 30px; }
+        .grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 25px; }
+        .vid-card { background: #1a1a1a; padding: 15px; border-radius: 15px; width: 320px; box-shadow: 0 10px 20px rgba(0,0,0,0.5); border: 1px solid #333; }
+        video { width: 100%; border-radius: 10px; background: black; }
+        .download-btn { display: block; background: #00e676; color: black; padding: 12px; margin-top: 15px; text-decoration: none; font-weight: bold; border-radius: 8px; transition: 0.3s; }
+        .download-btn:hover { background: #00c853; color: white; }
+        .date-label { color: #ffeb3b; font-size: 14px; margin-bottom: 10px; display: block; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h2>🎬 AI Real Video Studio</h2>
-        <button class="btn" onclick="document.getElementById('modal').style.display='flex'">+ Create Custom Video</button>
-    </div>
-    <h3 style="text-align:left; color:#4285f4;">🎯 My Custom Videos</h3>
+    <h1>🇺🇸 Auto AI USA Videos</h1>
+    <p>Daily 2-Minute Cinematic Stories | Auto-Updates at 11:00 PM</p>
     <div class="grid">
-        <p>No custom videos yet.</p>
+<div class="vid-card"><span class="date-label">📅 2026-09-15_22-34-25</span><video src="video_USA_2026-09-15_22-34-25.mp4" controls preload="metadata"></video><a href="video_USA_2026-09-15_22-34-25.mp4" download class="download-btn">⬇️ Download High Quality</a></div>
     </div>
-    <h3 style="text-align:left; color:#00ffcc; margin-top:40px;">🌍 Daily Auto Videos</h3>
-    <div class="grid">
-        
-    </div>
-    <div id="modal">
-        <div class="modal-box" id="input-screen">
-            <h3>Make Real Video</h3>
-            <input type="text" id="repo_name" placeholder="Your GitHub (user/repo)">
-            <input type="password" id="gh_token" placeholder="GitHub PAT Token">
-            <input type="text" id="prompt" placeholder="Topic (Hindi/English)">
-            <button class="btn" onclick="startGeneration()" style="width: 100%;">Generate</button>
-            <button class="btn" onclick="document.getElementById('modal').style.display='none'" style="width: 100%; margin-top: 10px; background: #555;">Cancel</button>
-        </div>
-        <div class="modal-box" id="loading-screen">
-            <h3>Generating Real Video...</h3><div class="spinner"></div><h2 id="progress-text">0%</h2>
-            <p>Please wait 2-3 mins.</p>
-        </div>
-    </div>
-    <script>
-        function startGeneration() {
-            let repo = document.getElementById('repo_name').value;
-            let token = document.getElementById('gh_token').value;
-            let prompt = document.getElementById('prompt').value;
-            if(!repo || !token || !prompt) return alert("Fill all details!");
-            document.getElementById('input-screen').style.display = 'none';
-            document.getElementById('loading-screen').style.display = 'block';
-            fetch(`https://api.github.com/repos/${repo}/actions/workflows/custom_video.yml/dispatches`, {
-                method: "POST", headers: { "Authorization": "token " + token, "Accept": "application/vnd.github.v3+json" },
-                body: JSON.stringify({ ref: "main", inputs: { custom_prompt: prompt } })
-            }).then(res => {
-                if(res.ok) { let p=0; setInterval(()=>{ if(p<96) p+=3; document.getElementById('progress-text').innerText=p+"%"; },4000); setTimeout(()=>location.reload(),150000); } 
-                else { alert("Error!"); location.reload(); }
-            });
-        }
-    </script>
 </body>
 </html>
