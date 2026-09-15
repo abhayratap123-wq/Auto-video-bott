@@ -25,9 +25,11 @@ Each object must have:
 2. "prompt": A highly detailed English image generation prompt for a realistic cinematic 8k image.
 Limit to 10 to 12 scenes. Do NOT wrap it in markdown block (like ```json), just return the raw JSON array."""
 
-# FIXED: removed stray markdown-link brackets [ ]( ) that were wrapped around the URL,
-# and swapped gemini-1.5-flash (fully shut down, returns 404) for gemini-3.8-flash (current)
-url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=" + api_key
+# FIXED: gemini-3.8-flash was consistently overloaded (503) for several minutes straight.
+# Instead of depending on one single model, try a short list of models in order —
+# if one is down, move to the next instead of failing the whole run.
+MODELS_TO_TRY = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-3.7-flash"]
+
 payload = {
     "contents": [{"parts": [{"text": ai_prompt}]}],
     # FIXED: forces Gemini to return syntactically valid JSON only, instead of
@@ -36,45 +38,48 @@ payload = {
     "generationConfig": {"responseMimeType": "application/json"}
 }
 
-# Retry loop: handles Gemini returning 503 "high demand" errors AND retries if the
-# JSON it sent back fails to parse, instead of crashing the whole run on either.
 scenes = None
-max_retries = 5
-wait_seconds = 20
+attempts_per_model = 3
 
-for attempt in range(1, max_retries + 1):
-    data = None
-    try:
-        response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=60)
-        data = response.json()
-    except Exception as e:
-        print(f"⚠️ Request failed (attempt {attempt}/{max_retries}):", e)
+for model_name in MODELS_TO_TRY:
+    url = "https://generativelanguage.googleapis.com/v1beta/models/" + model_name + ":generateContent?key=" + api_key
+    wait_seconds = 15
+    print(f"🔧 Trying model: {model_name}")
 
-    if data and "candidates" in data:
+    for attempt in range(1, attempts_per_model + 1):
+        data = None
         try:
-            json_text = data['candidates'][0]['content']['parts'][0]['text'].strip()
-            if json_text.startswith("```json"):
-                json_text = json_text[7:-3].strip()
-            elif json_text.startswith("```"):
-                json_text = json_text[3:-3].strip()
-            scenes = json.loads(json_text)
-            print("✅ Gemini generated", len(scenes), "scenes successfully!")
-            break  # success
+            response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=60)
+            data = response.json()
         except Exception as e:
-            print(f"⚠️ Parsing failed (attempt {attempt}/{max_retries}):", e)
-    else:
-        print(f"⚠️ API error (attempt {attempt}/{max_retries}):", data)
+            print(f"⚠️ Request failed ({model_name}, attempt {attempt}/{attempts_per_model}):", e)
 
-    if attempt < max_retries:
-        print(f"⏳ Retrying in {wait_seconds}s...")
-        time.sleep(wait_seconds)
-        wait_seconds = min(wait_seconds * 2, 120)
-    else:
-        print("❌ Gemini failed after all retries.")
-        exit(1)
+        if data and "candidates" in data:
+            try:
+                json_text = data['candidates'][0]['content']['parts'][0]['text'].strip()
+                if json_text.startswith("```json"):
+                    json_text = json_text[7:-3].strip()
+                elif json_text.startswith("```"):
+                    json_text = json_text[3:-3].strip()
+                scenes = json.loads(json_text)
+                print(f"✅ {model_name} generated", len(scenes), "scenes successfully!")
+                break  # success, stop retrying this model
+            except Exception as e:
+                print(f"⚠️ Parsing failed ({model_name}, attempt {attempt}/{attempts_per_model}):", e)
+        else:
+            print(f"⚠️ API error ({model_name}, attempt {attempt}/{attempts_per_model}):", data)
+
+        if attempt < attempts_per_model:
+            print(f"⏳ Retrying in {wait_seconds}s...")
+            time.sleep(wait_seconds)
+            wait_seconds = min(wait_seconds * 2, 90)
+
+    if scenes:
+        break  # this model worked, no need to try the next one
+    print(f"❌ {model_name} did not work after {attempts_per_model} attempts. Trying next model...")
 
 if not scenes:
-    print("❌ No scenes generated.")
+    print("❌ All models failed. No scenes generated.")
     exit(1)
 
 clip_files = []
