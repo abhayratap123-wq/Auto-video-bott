@@ -1,0 +1,39 @@
+name: Auto USA Video Engine
+
+on:
+  schedule:
+    # 17:30 UTC = 11:00 PM in India (IST)
+    - cron: '30 17 * * *' 
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - uses: actions/setup-python@v4
+        with: 
+          python-version: '3.10'
+      
+      - name: Install System Dependencies
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      
+      - name: Install Python Libraries
+        run: pip install requests edge-tts
+      
+      - name: Generate 2-Minute Cinematic Video
+        run: python generate_video.py
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          
+      - name: Save Video to GitHub Page
+        run: |
+          git config --global user.name 'GitHub Actions Bot'
+          git config --global user.email 'actions@github.com'
+          git add *.mp4 index.html || echo "No files to add"
+          git commit -m "Auto USA 2-Min Video Added" || echo "No changes to commit"
+          git push
