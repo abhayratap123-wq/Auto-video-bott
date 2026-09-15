@@ -24,7 +24,7 @@ Each object must have:
 2. "prompt": A highly detailed English image generation prompt for a realistic cinematic 8k image.
 Limit to 10 to 12 scenes. Do NOT wrap it in markdown block (like ```json), just return the raw JSON array."""
 
-# URL 100% FIXED
+# YAHAN BRACKETS HATA DIYE GAYE HAIN
 url = "[https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=](https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=)" + api_key
 payload = {"contents": [{"parts": [{"text": ai_prompt}]}]}
 
@@ -59,7 +59,7 @@ for i, scene in enumerate(scenes):
     aud_file = "temp_aud_" + str(i) + ".mp3"
     clip_file = "temp_clip_" + str(i) + ".mp4"
     
-    # A. Download High Quality Portrait Image (1080x1920)
+    # A. Download High Quality Portrait Image (1080x1920) - BRACKETS HATA DIYE HAIN
     safe_prompt = urllib.parse.quote(scene['prompt'] + ", highly detailed, cinematic lighting, 8k")
     img_url = "[https://image.pollinations.ai/prompt/](https://image.pollinations.ai/prompt/)" + safe_prompt + "?width=1080&height=1920&nologo=true"
     
