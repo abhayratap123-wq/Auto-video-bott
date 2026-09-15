@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import requests
 import urllib.parse
 from datetime import datetime
@@ -29,14 +30,36 @@ Limit to 10 to 12 scenes. Do NOT wrap it in markdown block (like ```json), just 
 url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=" + api_key
 payload = {"contents": [{"parts": [{"text": ai_prompt}]}]}
 
-try:
-    response = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
-    data = response.json()
+# Retry loop: handles Gemini returning 503 "high demand" / rate-limit errors,
+# which are temporary and just need a short wait + another try.
+data = None
+max_retries = 5
+wait_seconds = 20
 
-    if "candidates" not in data:
+for attempt in range(1, max_retries + 1):
+    try:
+        response = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=60)
+        data = response.json()
+    except Exception as e:
+        print(f"⚠️ Request failed (attempt {attempt}/{max_retries}):", e)
+        data = None
+
+    if data and "candidates" in data:
+        break  # success
+
+    status = ""
+    if data and isinstance(data.get("error"), dict):
+        status = data["error"].get("status", "")
+
+    if attempt < max_retries and (data is None or status in ("UNAVAILABLE", "RESOURCE_EXHAUSTED", "INTERNAL")):
+        print(f"⏳ Gemini busy (attempt {attempt}/{max_retries}). Waiting {wait_seconds}s and retrying...")
+        time.sleep(wait_seconds)
+        wait_seconds = min(wait_seconds * 2, 120)
+    else:
         print("❌ API Error:", data)
         exit(1)
 
+try:
     json_text = data['candidates'][0]['content']['parts'][0]['text'].strip()
 
     if json_text.startswith("```json"):
@@ -47,7 +70,7 @@ try:
     scenes = json.loads(json_text)
     print("✅ Gemini generated", len(scenes), "scenes successfully!")
 except Exception as e:
-    print("❌ API Error or Parsing Failed:", e)
+    print("❌ Parsing Failed:", e)
     exit(1)
 
 clip_files = []
